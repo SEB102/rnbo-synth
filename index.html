@@ -181,9 +181,16 @@
 </div>
 
 <script type="module">
-// ─── RNBO import (CDN) ──────────────────────────────────────────────────────
-import { createDevice, MIDIEvent } from
-  "https://cdn.jsdelivr.net/npm/@rnbo/js@1/dist/rnbo.mjs";
+// ─── RNBO import dynamique (fallback si CDN inaccessible) ───────────────────
+let createDevice, MIDIEvent;
+try {
+  const rnbo = await import("https://cdn.jsdelivr.net/npm/@rnbo/js@1/dist/rnbo.mjs");
+  createDevice = rnbo.createDevice;
+  MIDIEvent    = rnbo.MIDIEvent;
+} catch(_) {
+  createDevice = null;
+  MIDIEvent    = null;
+}
 
 // ─── State ───────────────────────────────────────────────────────────────────
 const ADSR = { attack: 20, decay: 20, sustain: 0.5, release: 500 };
