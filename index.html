@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RNBO Synth</title>
+<script src="https://cdn.cycling74.com/rnbo/latest/rnbo.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -180,17 +181,10 @@
   <p class="hint">CLAVIER : A W S E D F T G Y H U J · Z/X = octave</p>
 </div>
 
-<script type="module">
-// ─── RNBO import dynamique (fallback si CDN inaccessible) ───────────────────
-let createDevice, MIDIEvent;
-try {
-  const rnbo = await import("./rnbo.mjs");
-  createDevice = rnbo.createDevice;
-  MIDIEvent    = rnbo.MIDIEvent;
-} catch(_) {
-  createDevice = null;
-  MIDIEvent    = null;
-}
+<script>
+// ─── RNBO via CDN officiel Cycling '74 (global window.RNBO) ─────────────────
+const createDevice = (typeof RNBO !== "undefined") ? RNBO.createDevice : null;
+const MIDIEvent    = (typeof RNBO !== "undefined") ? RNBO.MIDIEvent    : null;
 
 // ─── State ───────────────────────────────────────────────────────────────────
 const ADSR = { attack: 20, decay: 20, sustain: 0.5, release: 500 };
