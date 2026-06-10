@@ -207,7 +207,7 @@ async function init() {
     const resp = await fetch("./patch.export.json");
     if (!resp.ok) throw new Error("patch.export.json introuvable");
     const patcher = await resp.json();
-    rnboDevice = await createDevice({ context: ctx, patcher });
+    rnboDevice = await createDevice({ audioContext: ctx, patcher });
     rnboDevice.node.connect(masterGain);
     useRNBO = true;
     badge.className = "rnbo";
