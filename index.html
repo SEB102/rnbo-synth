@@ -184,7 +184,7 @@
 // ─── RNBO import dynamique (fallback si CDN inaccessible) ───────────────────
 let createDevice, MIDIEvent;
 try {
-  const rnbo = await import("./rnbo.js");
+  const rnbo = await import("./rnbo.mjs");
   createDevice = rnbo.createDevice;
   MIDIEvent    = rnbo.MIDIEvent;
 } catch(_) {
