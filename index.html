@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RNBO Synth</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #1a1a2e;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'Courier New', monospace;
+    color: #e0e0e0;
+    user-select: none;
+    gap: 1.6rem;
+  }
+
+  h1 {
+    font-size: 1.1rem;
+    letter-spacing: 0.3em;
+    color: #7f9cf5;
+    text-transform: uppercase;
+  }
+
+  /* ── Engine badge ── */
+  #engine-badge {
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    padding: 3px 12px;
+    border-radius: 20px;
+    border: 1px solid #4a5491;
+    color: #7f9cf5;
+    background: #16213e;
+    margin-top: -1rem;
+  }
+  #engine-badge.rnbo    { border-color: #4cc9f0; color: #4cc9f0; }
+  #engine-badge.webaudio{ border-color: #f4a261; color: #f4a261; }
+
+  /* ── ADSR panel ── */
+  .adsr-panel {
+    display: flex;
+    gap: 2rem;
+    background: #16213e;
+    padding: 1rem 2rem;
+    border-radius: 8px;
+    border: 1px solid #2d3561;
+  }
+
+  .adsr-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .adsr-label { font-size: 0.65rem; letter-spacing: 0.15em; color: #7f9cf5; }
+  .adsr-value { font-size: 0.9rem; color: #f6e05e; }
+
+  /* ── Piano ── */
+  .keyboard-wrap {
+    background: #16213e;
+    padding: 1.5rem 1.5rem 1rem;
+    border-radius: 12px;
+    border: 1px solid #2d3561;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+
+  .keyboard { display: flex; position: relative; height: 160px; }
+
+  .key { position: absolute; cursor: pointer; border-radius: 0 0 6px 6px; transition: background 0.05s; }
+
+  .key.white {
+    width: 44px; height: 160px;
+    background: linear-gradient(to bottom, #f0f0f0, #fff 60%, #e8e8e8);
+    border: 1px solid #999; border-top: none; z-index: 1;
+  }
+  .key.white:hover  { background: linear-gradient(to bottom, #e0e8ff, #ccd5ff); }
+  .key.white.active { background: linear-gradient(to bottom, #7f9cf5, #5a7af5); }
+
+  .key.black {
+    width: 28px; height: 100px;
+    background: linear-gradient(to bottom, #222, #444 40%, #111);
+    z-index: 2; border: 1px solid #000; border-top: none;
+  }
+  .key.black:hover  { background: linear-gradient(to bottom, #3a4a8a, #5a6aaa); }
+  .key.black.active { background: linear-gradient(to bottom, #5a7af5, #3a5af5); }
+
+  .note-label {
+    position: absolute; bottom: 8px; width: 100%;
+    text-align: center; font-size: 0.55rem; color: #666; pointer-events: none;
+  }
+  .key.white.active .note-label { color: #fff; }
+
+  /* ── Controls ── */
+  .controls {
+    display: flex; align-items: center; gap: 1rem;
+    margin-top: 1.2rem; justify-content: center;
+  }
+
+  .ctrl-btn {
+    background: #2d3561; border: 1px solid #4a5491;
+    color: #e0e0e0; padding: 0.4rem 1rem; border-radius: 6px;
+    cursor: pointer; font-family: inherit; font-size: 0.8rem;
+    letter-spacing: 0.1em; transition: background 0.15s;
+  }
+  .ctrl-btn:hover { background: #3d4571; }
+
+  .octave-display { font-size: 0.8rem; color: #7f9cf5; min-width: 80px; text-align: center; }
+
+  .volume-row {
+    display: flex; align-items: center; gap: 0.8rem;
+    margin-top: 0.8rem; justify-content: center;
+  }
+  .volume-row label { font-size: 0.7rem; letter-spacing: 0.1em; color: #7f9cf5; }
+
+  input[type=range] {
+    -webkit-appearance: none; width: 120px; height: 4px;
+    background: #2d3561; border-radius: 2px; outline: none; cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 14px; height: 14px;
+    background: #7f9cf5; border-radius: 50%;
+  }
+
+  /* ── Start overlay ── */
+  #start-overlay {
+    position: fixed; inset: 0;
+    background: rgba(26,26,46,0.95);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 1.5rem; z-index: 100;
+  }
+  #start-overlay p { color: #a0aec0; font-size: 0.85rem; }
+  #start-btn {
+    background: #7f9cf5; color: #1a1a2e; border: none;
+    padding: 0.9rem 2.5rem; border-radius: 8px;
+    font-family: inherit; font-size: 1rem; font-weight: bold;
+    letter-spacing: 0.15em; cursor: pointer; transition: background 0.2s;
+  }
+  #start-btn:hover { background: #9db5ff; }
+
+  .hint { margin-top: 0.6rem; font-size: 0.6rem; color: #4a5491; letter-spacing: 0.1em; text-align: center; }
+</style>
+</head>
+<body>
+
+<div id="start-overlay">
+  <h1 style="font-size:1.3rem;letter-spacing:0.3em;color:#7f9cf5">RNBO SYNTH</h1>
+  <p>cycle~ + ADSR · A:20ms D:20ms S:0.5 R:500ms</p>
+  <button id="start-btn">▶  DÉMARRER</button>
+</div>
+
+<h1>RNBO SYNTH</h1>
+<div id="engine-badge">INITIALISATION…</div>
+
+<div class="adsr-panel">
+  <div class="adsr-item"><span class="adsr-label">ATTACK</span> <span class="adsr-value" id="v-attack">20 ms</span></div>
+  <div class="adsr-item"><span class="adsr-label">DECAY</span>  <span class="adsr-value" id="v-decay">20 ms</span></div>
+  <div class="adsr-item"><span class="adsr-label">SUSTAIN</span><span class="adsr-value" id="v-sustain">0.50</span></div>
+  <div class="adsr-item"><span class="adsr-label">RELEASE</span><span class="adsr-value" id="v-release">500 ms</span></div>
+</div>
+
+<div class="keyboard-wrap">
+  <div class="keyboard" id="keyboard"></div>
+  <div class="controls">
+    <button class="ctrl-btn" id="oct-down">◀ OCT</button>
+    <span class="octave-display" id="oct-label">Octave 4</span>
+    <button class="ctrl-btn" id="oct-up">OCT ▶</button>
+  </div>
+  <div class="volume-row">
+    <label>VOL</label>
+    <input type="range" id="volume" min="0" max="100" value="70">
+    <label id="vol-label">70</label>
+  </div>
+  <p class="hint">CLAVIER : A W S E D F T G Y H U J · Z/X = octave</p>
+</div>
+
+<script type="module">
+// ─── RNBO import (CDN) ──────────────────────────────────────────────────────
+import { createDevice, MIDIEvent } from
+  "https://cdn.jsdelivr.net/npm/@rnbo/js@1/dist/rnbo.mjs";
+
+// ─── State ───────────────────────────────────────────────────────────────────
+const ADSR = { attack: 20, decay: 20, sustain: 0.5, release: 500 };
+let ctx, masterGain;
+let rnboDevice = null;   // set if RNBO patch loaded successfully
+let useRNBO = false;
+const voices = {};       // fallback Web Audio voices
+
+// ─── Init ────────────────────────────────────────────────────────────────────
+async function init() {
+  ctx = new (window.AudioContext || window.webkitAudioContext)();
+  masterGain = ctx.createGain();
+  masterGain.gain.value = 0.70;
+  masterGain.connect(ctx.destination);
+
+  const badge = document.getElementById("engine-badge");
+  badge.textContent = "Chargement RNBO…";
+
+  try {
+    const resp = await fetch("./patch.export.json");
+    if (!resp.ok) throw new Error("patch.export.json introuvable");
+    const patcher = await resp.json();
+    rnboDevice = await createDevice({ context: ctx, patcher });
+    rnboDevice.node.connect(masterGain);
+    useRNBO = true;
+    badge.className = "rnbo";
+    badge.textContent = "ENGINE : RNBO ✓";
+    // sync initial ADSR params to RNBO
+    syncADSRToRNBO();
+  } catch (e) {
+    console.warn("RNBO non disponible, fallback Web Audio :", e.message);
+    useRNBO = false;
+    badge.className = "webaudio";
+    badge.textContent = "ENGINE : WEB AUDIO (exporter depuis MAX pour activer RNBO)";
+  }
+
+  buildKeyboard();
+  document.getElementById("start-overlay").style.display = "none";
+}
+
+// ─── RNBO parameter sync ─────────────────────────────────────────────────────
+function syncADSRToRNBO() {
+  if (!rnboDevice) return;
+  const map = { attack: ADSR.attack, decay: ADSR.decay, sustain: ADSR.sustain, release: ADSR.release };
+  for (const [id, val] of Object.entries(map)) {
+    const p = rnboDevice.parametersById.get(id);
+    if (p) p.value = val;
+  }
+}
+
+// ─── Note on/off ─────────────────────────────────────────────────────────────
+function noteOn(midi) {
+  if (useRNBO) {
+    const t = ctx.currentTime * 1000;
+    rnboDevice.scheduleEvent(new MIDIEvent(t, 0, [0x90, midi, 100]));
+  } else {
+    waNoteOn(midi);
+  }
+}
+
+function noteOff(midi) {
+  if (useRNBO) {
+    const t = ctx.currentTime * 1000;
+    rnboDevice.scheduleEvent(new MIDIEvent(t, 0, [0x80, midi, 0]));
+  } else {
+    waNoteOff(midi);
+  }
+}
+
+// ─── Web Audio fallback ───────────────────────────────────────────────────────
+function midiToFreq(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+
+function waNoteOn(midi) {
+  if (voices[midi]) waNoteOff(midi, true);
+  const now = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  osc.type = "sine";
+  osc.frequency.value = midiToFreq(midi);
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(0, now);
+  env.gain.linearRampToValueAtTime(1.0, now + ADSR.attack / 1000);
+  env.gain.linearRampToValueAtTime(ADSR.sustain, now + ADSR.attack / 1000 + ADSR.decay / 1000);
+  osc.connect(env); env.connect(masterGain); osc.start(now);
+  voices[midi] = { osc, env };
+}
+
+function waNoteOff(midi, immediate = false) {
+  const v = voices[midi]; if (!v) return;
+  const now = ctx.currentTime;
+  v.env.gain.cancelScheduledValues(now);
+  v.env.gain.setValueAtTime(v.env.gain.value, now);
+  const dur = immediate ? 0.005 : ADSR.release / 1000;
+  v.env.gain.linearRampToValueAtTime(0, now + dur);
+  v.osc.stop(now + dur + 0.01);
+  delete voices[midi];
+}
+
+// ─── Piano layout ─────────────────────────────────────────────────────────────
+const WHITE_NOTES  = [0, 2, 4, 5, 7, 9, 11];
+const WHITE_LABELS = ['C','D','E','F','G','A','B'];
+const BLACK_OFFSETS = [
+  { white: 0, semi: 1 }, { white: 1, semi: 3 },
+  { white: 3, semi: 6 }, { white: 4, semi: 8 }, { white: 5, semi: 10 },
+];
+const NUM_OCTAVES = 2;
+const WHITE_W = 45;
+let baseOctave = 4;
+
+function buildKeyboard() {
+  const kb = document.getElementById("keyboard");
+  kb.innerHTML = "";
+  const total = NUM_OCTAVES * 7 + 1;
+  kb.style.width = (total * WHITE_W - 1) + "px";
+
+  for (let oct = 0; oct < NUM_OCTAVES; oct++) {
+    WHITE_NOTES.forEach((semi, w) => {
+      const midi = (baseOctave + oct) * 12 + semi;
+      const key = makeKey("white", midi, WHITE_LABELS[w] + (baseOctave + oct));
+      key.style.left = ((oct * 7 + w) * WHITE_W) + "px";
+      kb.appendChild(key);
+    });
+    BLACK_OFFSETS.forEach(b => {
+      const midi = (baseOctave + oct) * 12 + b.semi;
+      const key = makeKey("black", midi, "");
+      key.style.left = ((oct * 7 + b.white) * WHITE_W + 30) + "px";
+      kb.appendChild(key);
+    });
+  }
+  const topC = makeKey("white", (baseOctave + NUM_OCTAVES) * 12, "C" + (baseOctave + NUM_OCTAVES));
+  topC.style.left = (NUM_OCTAVES * 7 * WHITE_W) + "px";
+  kb.appendChild(topC);
+}
+
+function makeKey(type, midi, label) {
+  const el = document.createElement("div");
+  el.className = "key " + type;
+  el.dataset.midi = midi;
+  if (label) {
+    const lbl = document.createElement("span");
+    lbl.className = "note-label"; lbl.textContent = label;
+    el.appendChild(lbl);
+  }
+  el.addEventListener("pointerdown", e => { e.preventDefault(); el.setPointerCapture(e.pointerId); activateKey(el, midi); });
+  el.addEventListener("pointerup",     () => deactivateKey(el, midi));
+  el.addEventListener("pointercancel", () => deactivateKey(el, midi));
+  el.addEventListener("pointerleave",  e => { if (e.buttons) deactivateKey(el, midi); });
+  return el;
+}
+
+function activateKey(el, midi)   { el.classList.add("active");    noteOn(midi); }
+function deactivateKey(el, midi) { el.classList.remove("active"); noteOff(midi); }
+
+// ─── Keyboard shortcuts ───────────────────────────────────────────────────────
+const KEY_MAP = { a:0, w:1, s:2, e:3, d:4, f:5, t:6, g:7, y:8, h:9, u:10, j:11, k:12 };
+const held = new Set();
+
+document.addEventListener("keydown", e => {
+  if (e.repeat) return;
+  if (e.key === "z") { baseOctave = Math.max(0, baseOctave-1); buildKeyboard(); updateOctLabel(); return; }
+  if (e.key === "x") { baseOctave = Math.min(7, baseOctave+1); buildKeyboard(); updateOctLabel(); return; }
+  const semi = KEY_MAP[e.key.toLowerCase()]; if (semi === undefined) return;
+  const midi = baseOctave * 12 + semi; if (held.has(midi)) return;
+  held.add(midi); noteOn(midi); highlightMidi(midi, true);
+});
+document.addEventListener("keyup", e => {
+  const semi = KEY_MAP[e.key.toLowerCase()]; if (semi === undefined) return;
+  const midi = baseOctave * 12 + semi; held.delete(midi); noteOff(midi); highlightMidi(midi, false);
+});
+function highlightMidi(midi, on) {
+  document.querySelectorAll(`[data-midi="${midi}"]`).forEach(el => el.classList.toggle("active", on));
+}
+
+// ─── Controls ─────────────────────────────────────────────────────────────────
+function updateOctLabel() { document.getElementById("oct-label").textContent = "Octave " + baseOctave; }
+
+document.getElementById("oct-down").addEventListener("click", () => { baseOctave = Math.max(0, baseOctave-1); buildKeyboard(); updateOctLabel(); });
+document.getElementById("oct-up").addEventListener("click",   () => { baseOctave = Math.min(7, baseOctave+1); buildKeyboard(); updateOctLabel(); });
+
+document.getElementById("volume").addEventListener("input", e => {
+  document.getElementById("vol-label").textContent = e.target.value;
+  if (masterGain) masterGain.gain.value = e.target.value / 100;
+});
+
+// ─── Start ────────────────────────────────────────────────────────────────────
+document.getElementById("start-btn").addEventListener("click", init);
+</script>
+</body>
+</html>

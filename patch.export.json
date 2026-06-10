@@ -1,0 +1,4 @@
+{
+  "_comment": "Remplacer ce fichier par l'export RNBO de Max : File → Export to Code → Web Export. Ce placeholder force le fallback Web Audio API.",
+  "__placeholder": true
+}
